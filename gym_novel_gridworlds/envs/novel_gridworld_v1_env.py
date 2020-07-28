@@ -13,7 +13,7 @@ from matplotlib.cm import get_cmap
 import gym
 from gym import error, spaces, utils
 from gym.utils import seeding
-
+import cv2 as cv
 
 class NovelGridworldV1Env(gym.Env):
     # metadata = {'render.modes': ['human']}
@@ -24,7 +24,7 @@ class NovelGridworldV1Env(gym.Env):
 
     """
 
-    def __init__(self):
+    def __init__(self, map_obs = False):
         # NovelGridworldV1Env attributes
         self.env_name = 'NovelGridworld-v1'
         self.map_size = 10
@@ -43,7 +43,7 @@ class NovelGridworldV1Env(gym.Env):
         self.inventory_items_quantity = {}
         self.available_locations = []  # locations that do not have item placed
         self.not_available_locations = []  # locations that have item placed or are above, below, left, right to an item
-
+        self.step_limit = 1000
         # Action Space
         self.action_str = {0: 'Forward', 1: 'Left', 2: 'Right', 3: 'Break'}
         self.action_space = spaces.Discrete(len(self.action_str))
@@ -51,12 +51,20 @@ class NovelGridworldV1Env(gym.Env):
         self.step_count = 0  # no. of steps taken
 
         # Observation Space
-        self.num_beams = 5
-        self.max_beam_range = int(math.sqrt(2 * (self.map_size - 2) ** 2))  # Hypotenuse of a square
-        low = np.ones(len(self.items_id) * self.num_beams, dtype=int)
-        high = np.array([self.max_beam_range] * len(self.items_id) * self.num_beams)
-        self.observation_space = spaces.Box(low, high, dtype=int)
+        self.map_obs = map_obs
+        if not map_obs:
+            print("Using Lidar....")
+            self.num_beams = 5
+            self.max_beam_range = int(math.sqrt(2 * (self.map_size - 2) ** 2))  # Hypotenuse of a square
+            low = np.ones(len(self.items_id) * self.num_beams, dtype=int)
+            high = np.array([self.max_beam_range] * len(self.items_id) * self.num_beams)
+            self.observation_space = spaces.Box(low, high, dtype=int)
+        else:
+            print("Using Map....",self.map_size)
+            #self.observation_space = spaces.Box(0, 255, shape = (*self.map.shape,3), dtype=int)
+            self.observation_space = spaces.Box(0, 255, shape = (64,64,3), dtype=int)
 
+        
         # Reward
         self.last_reward = 0  # last received reward
 
@@ -82,7 +90,7 @@ class NovelGridworldV1Env(gym.Env):
         self.step_count = 0  # no. of steps taken
         self.last_reward = 0  # last received reward
         self.last_done = False  # last done
-
+        
         self.map = np.zeros((self.map_size - 2, self.map_size - 2), dtype=int)  # air=0
         self.map = np.pad(self.map, pad_width=1, mode='constant', constant_values=self.items_id['wall'])
 
@@ -108,7 +116,11 @@ class NovelGridworldV1Env(gym.Env):
             self.available_locations.append(self.agent_location)
 
         # Update after each reset
-        observation = self.get_lidarSignal()
+        if not self.map_obs:
+            observation = self.get_lidarSignal()
+        else:
+            observation = self.get_map_obs()
+
         self.update_block_in_front()
 
         return observation
@@ -136,6 +148,24 @@ class NovelGridworldV1Env(gym.Env):
                 self.map[r][c] = item_id
                 count += 1
             self.not_available_locations.append(self.available_locations.pop(idx))
+
+    
+    def get_map_obs(self):
+        obs = self.map.copy()
+        obs[self.agent_location] = 4 +self.agent_facing_id
+        vals = np.fromiter(sorted(np.unique(obs.flatten())), dtype = np.int8)
+        
+        colors = np.array([[0,0,0],[255,255,255],[0,0,255],[0,255,0],[255,0,0],[255,255,0],[255,0,255],[0,255,255]])
+
+        image = np.zeros((*obs.shape,3))
+
+        for v in vals:
+            image[np.where(obs == v)] = colors[v]
+        
+        obs = np.expand_dims(obs, axis = -1)
+        image = cv.resize(src = image,dsize = (64,64),fx = 0,fy = 0, interpolation = cv.INTER_NEAREST)
+        #cv.resize()
+        return image
 
     def get_lidarSignal(self):
         """
@@ -245,14 +275,19 @@ class NovelGridworldV1Env(gym.Env):
                     reward = 10
 
         # Update after each step
-        observation = self.get_lidarSignal()
+        if not self.map_obs:
+            observation = self.get_lidarSignal()
+        else:
+            observation = self.get_map_obs()
+
         self.update_block_in_front()
 
         done = False
         if 'tree' in self.inventory_items_quantity and self.inventory_items_quantity['tree'] >= 3:
             reward = 50
             done = True
-
+        elif self.step_count == self.step_limit:
+            done = True
         info = {}
 
         # Update after each step

@@ -44,7 +44,7 @@ class NovelGridworldV6Env(gym.Env):
         self.inventory_items_quantity = {item: 0 for item in self.items}
         self.available_locations = []  # locations that do not have item placed
         self.not_available_locations = []  # locations that have item placed or are above, below, left, right to an item
-
+        
         # Action Space
         self.action_str = {0: 'Forward', 1: 'Left', 2: 'Right', 3: 'Break', 4: 'Place_tree_tap_Extract_rubber',
                            5: 'Craft_plank', 6: 'Craft_stick', 7: 'Craft_tree_tap', 8: 'Craft_pogo_stick'}
@@ -69,6 +69,7 @@ class NovelGridworldV6Env(gym.Env):
         self.last_reward = 0  # last received reward
 
         self.last_done = False  # last done
+    
 
     def reset(self, map_size=None, items_id=None, items_quantity=None):
 
@@ -510,6 +511,7 @@ class NovelGridworldV6Env(gym.Env):
         plt.tight_layout()
         plt.pause(0.01)
         plt.clf()
+            
 
     def close(self):
         return

@@ -62,7 +62,7 @@ class NovelGridworldV1Env(gym.Env):
         else:
             print("Using Map....",self.map_size)
             #self.observation_space = spaces.Box(0, 255, shape = (*self.map.shape,3), dtype=int)
-            self.observation_space = spaces.Box(0, 255, shape = (64,64,3), dtype=int)
+            self.observation_space = spaces.Box(0, 255, shape = (10,10,3), dtype=np.uint8)
 
         
         # Reward
@@ -161,9 +161,9 @@ class NovelGridworldV1Env(gym.Env):
 
         for v in vals:
             image[np.where(obs == v)] = colors[v]
-        
-        obs = np.expand_dims(obs, axis = -1)
-        image = cv.resize(src = image,dsize = (64,64),fx = 0,fy = 0, interpolation = cv.INTER_NEAREST)
+        image=  np.array(image,dtype = np.uint8)
+        #obs = np.expand_dims(obs, axis = -1)
+        #image = cv.resize(src = image,dsize = (64,64),fx = 0,fy = 0, interpolation = cv.INTER_NEAREST)
         #cv.resize()
         return image
 
